@@ -1,6 +1,10 @@
 package io.kettil;
 
 import com.google.rpc.Status;
+import io.envoyproxy.envoy.service.auth.v3.AuthorizationGrpc.AuthorizationImplBase;
+import io.envoyproxy.envoy.service.auth.v3.CheckRequest;
+import io.envoyproxy.envoy.service.auth.v3.CheckResponse;
+import io.envoyproxy.envoy.service.auth.v3.OkHttpResponse;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -21,7 +25,6 @@ public class TestEnvoyExtAuthzService implements Closeable {
     private static final Integer DENIED = 7;
 
     private final int gRpcPort;
-
     private Server server;
 
     public TestEnvoyExtAuthzService(@Value("${grpc.port}") int gRpcPort) {
@@ -31,76 +34,7 @@ public class TestEnvoyExtAuthzService implements Closeable {
     @PostConstruct
     public void start() throws IOException {
         server = ServerBuilder.forPort(gRpcPort)
-            .addService(new io.envoyproxy.envoy.service.auth.v2.AuthorizationGrpc.AuthorizationImplBase() {
-                @SneakyThrows
-                @Override
-                public void check(io.envoyproxy.envoy.service.auth.v2.CheckRequest request, StreamObserver<io.envoyproxy.envoy.service.auth.v2.CheckResponse> responseObserver) {
-                    log.info("v2.CheckRequest: {}", request);
-
-                    int code;
-
-                    String objectNamespace = request.getAttributes().getContextExtensionsOrThrow("namespace_object");
-                    String serviceNamespace = request.getAttributes().getContextExtensionsOrThrow("namespace_service");
-                    String servicePath = request.getAttributes().getContextExtensionsOrThrow("service_path");
-                    String relation = request.getAttributes().getContextExtensionsOrThrow("relation");
-                    String objectIdPtr = request.getAttributes().getContextExtensionsMap().get("objectid_ptr");
-
-                    Map<String, String> headers = request.getAttributes().getRequest().getHttp().getHeadersMap();
-                    String token = headers.get("authorization");
-
-                    String method = request.getAttributes().getRequest().getHttp().getMethod();
-                    String path = request.getAttributes().getRequest().getHttp().getPath();
-                    switch (path) {
-                        case "/allow":
-                            code = GRANTED;
-                            break;
-                        case "/deny":
-                            code = DENIED;
-                            break;
-
-                        default:
-                            code = DENIED;
-                            break;
-                    }
-
-                    responseObserver.onNext(io.envoyproxy.envoy.service.auth.v2.CheckResponse.newBuilder()
-                        .setStatus(Status.newBuilder().setCode(code).build())
-                        .setOkResponse(io.envoyproxy.envoy.service.auth.v2.OkHttpResponse.newBuilder().build())
-                        .build());
-
-                    responseObserver.onCompleted();
-                }
-            })
-            .addService(new io.envoyproxy.envoy.service.auth.v3.AuthorizationGrpc.AuthorizationImplBase() {
-                @SneakyThrows
-                @Override
-                public void check(io.envoyproxy.envoy.service.auth.v3.CheckRequest request, StreamObserver<io.envoyproxy.envoy.service.auth.v3.CheckResponse> responseObserver) {
-                    log.info("v3.CheckRequest: {}", request);
-
-                    int code;
-
-                    String path = request.getAttributes().getRequest().getHttp().getPath();
-                    switch (path) {
-                        case "/allow":
-                            code = GRANTED;
-                            break;
-                        case "/deny":
-                            code = DENIED;
-                            break;
-
-                        default:
-                            code = GRANTED;
-                            break;
-                    }
-
-                    responseObserver.onNext(io.envoyproxy.envoy.service.auth.v3.CheckResponse.newBuilder()
-                        .setStatus(Status.newBuilder().setCode(code).build())
-                        .setOkResponse(io.envoyproxy.envoy.service.auth.v3.OkHttpResponse.newBuilder().build())
-                        .build());
-
-                    responseObserver.onCompleted();
-                }
-            })
+            .addService(newCheckRequestHandler())
             .build();
 
         server.start();
@@ -110,6 +44,62 @@ public class TestEnvoyExtAuthzService implements Closeable {
 
     @Override
     public void close() {
-        server.shutdown();
+        if (server != null)
+            server.shutdown();
+    }
+
+    private io.grpc.BindableService newCheckRequestHandler() {
+        return new AuthorizationImplBase() {
+            @SneakyThrows
+            @Override
+            public void check(CheckRequest request, StreamObserver<CheckResponse> responseObserver) {
+                log.info("v3.CheckRequest: {}", request);
+
+                String objectNamespace = request.getAttributes().getContextExtensionsOrThrow("namespace_object");
+                String serviceNamespace = request.getAttributes().getContextExtensionsOrThrow("namespace_service");
+                String servicePath = request.getAttributes().getContextExtensionsOrThrow("service_path");
+                String relation = request.getAttributes().getContextExtensionsOrThrow("relation");
+                String objectIdPtr = request.getAttributes().getContextExtensionsMap().get("objectid_ptr");
+
+                String authzResult = request.getAttributes().getContextExtensionsMap().get("authz_result");
+
+                Map<String, String> headers = request.getAttributes().getRequest().getHttp().getHeadersMap();
+                String authorization = headers.get("authorization");
+
+                String method = request.getAttributes().getRequest().getHttp().getMethod();
+                String path = request.getAttributes().getRequest().getHttp().getPath();
+
+                int code = GRANTED;
+
+                switch (authzResult) {
+                    case "allow":
+                        code = GRANTED;
+                        break;
+
+                    case "deny":
+                        code = DENIED;
+                        break;
+                }
+
+                switch (path) {
+                    case "/allow":
+                        code = GRANTED;
+                        break;
+
+                    case "/deny":
+                        code = DENIED;
+                        break;
+                }
+
+                log.info("v3.CheckRequest result: {}", code == GRANTED ? "GRANTED" : "DENIED");
+
+                responseObserver.onNext(CheckResponse.newBuilder()
+                    .setStatus(Status.newBuilder().setCode(code).build())
+                    .setOkResponse(OkHttpResponse.newBuilder().build())
+                    .build());
+
+                responseObserver.onCompleted();
+            }
+        };
     }
 }
