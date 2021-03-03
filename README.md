@@ -36,6 +36,9 @@ Example output:
 
 ## Deploy
 
+NOTE: the other images referred to in the deployment are already available
+in docker.io. No need to build them.
+
 Run this command:
 ```bash
 skaffold run
