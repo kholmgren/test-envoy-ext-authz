@@ -4,7 +4,7 @@
 
 Ensure that the following are available:
 * minikube
-* httpie
+* httpie (or curl)
 * skaffold
 
 Start minikube and a minikube tunnel.
@@ -32,7 +32,6 @@ Example output:
 [INFO] Finished at: 2021-03-03T09:03:47-05:00
 [INFO] ------------------------------------------------------------------------
 ```
-
 
 ## Deploy
 
@@ -68,7 +67,6 @@ Deployments stabilized in 11.442106ms
 You can also run [skaffold run --tail] to get the logs
 ```
 
-
 ## Test
 
 ```bash
@@ -76,6 +74,10 @@ INGRESS=$(kubectl get service envoy -o=jsonpath='{.status.loadBalancer.ingress[0
 
 http $INGRESS/allow
 http $INGRESS/deny
+
+#or if you prefer to use cURL: 
+#curl -v $INGRESS/allow
+#curl -v $INGRESS/deny
 
 kubectl logs authz
 
