@@ -1,4 +1,4 @@
-package io.kettil.faas.authz.server.mock;
+package io.kettil;
 
 import com.google.rpc.Status;
 import io.grpc.Server;

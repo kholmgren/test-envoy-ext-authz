@@ -1,4 +1,4 @@
-package io.kettil.faas.authz.server.mock;
+package io.kettil;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

@@ -41,7 +41,7 @@ spec:
           mountPath: /etc/envoy
   initContainers:
     - name: envoy-init
-      image: docker.io/kettil/faas-envoy-init:latest
+      image: docker.io/kettil/test-envoy-init-container:latest
       env:
         - name: MANIFEST_FILE
           value: /etc/faas/manifest.yaml
