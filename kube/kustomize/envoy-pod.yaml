@@ -13,7 +13,6 @@ spec:
       emptyDir: {}
   containers:
     - name: envoy
-#      image: docker.io/envoyproxy/envoy-dev:latest
       image: docker.io/envoyproxy/envoy:v1.17-latest
       ports:
         - name: http

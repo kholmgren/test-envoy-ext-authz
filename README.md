@@ -68,16 +68,19 @@ You can also run [skaffold run --tail] to get the logs
 ```
 
 ## Test
-
 ```bash
-INGRESS=$(kubectl get service envoy -o=jsonpath='{.status.loadBalancer.ingress[0].ip}')
+# if you're using Minikube and can't use its tunnel:
+INGRESS=$(minikube service envoy --url)
+
+# if you're using some other cluster
+# INGRESS=$(kubectl get service envoy -o=jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 http $INGRESS/allow
 http $INGRESS/deny
 
-#or if you prefer to use cURL: 
-#curl -v $INGRESS/allow
-#curl -v $INGRESS/deny
+# or if you prefer to use cURL: 
+# curl -v $INGRESS/allow
+# curl -v $INGRESS/deny
 
 kubectl logs authz
 
